@@ -11,11 +11,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.io.IOException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -33,62 +34,81 @@ public class JsonDataControllerIntegrationTest {
 
     @BeforeEach
     public void setUp() {
-        // Setup any initialization logic here, if necessary
+        // Any necessary setup before each test
     }
 
     @Test
-    public void testUploadJsonDataEmptyContent() throws Exception {
-        // Sending an empty body with content-type as application/json
-        mockMvc.perform(post("/api/json-upload/upload")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("")) // Sending empty JSON content
-                .andExpect(status().isBadRequest()) // Expecting 400 Bad Request
-                .andExpect(content().string("JSON content cannot be null or empty")); // Validating the response message
-    }
+    public void testUploadJsonData_ValidJson() throws Exception {
+        // Arrange
+        String validJsonContent = "{ \"meta\": { \"data_version\": \"1.0\", \"created\": \"2023-09-15\", \"revision\": 1 }, \"data\": [] }";
 
-    @Test
-    public void testUploadJsonDataValidContent() throws Exception {
-        // Mock the service call
+        // Mock the service behavior
         Mockito.doNothing().when(jsonDataUploadService).uploadJsonData(Mockito.anyString());
         Mockito.doNothing().when(matchService).clearCache();
 
-        String validJsonContent = "{ \"meta\": { \"data_version\": \"1.0\", \"created\": \"2023-09-15\", \"revision\": 1 }, \"data\": [] }";
-
-        // Send a valid JSON payload
-        mockMvc.perform(post("/api/json-upload/upload")
+        // Act & Assert
+        MvcResult result = mockMvc.perform(post("/api/json-upload/upload")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validJsonContent)) // Sending valid JSON content
-                .andExpect(status().isOk()) // Expecting 200 OK
-                .andExpect(content().string("JSON data uploaded and processed successfully")); // Validating the response message
+                        .content(validJsonContent))
+                .andExpect(status().isOk()) // Expecting HTTP 200
+                .andReturn();
+
+        // Verify response content
+        String responseContent = result.getResponse().getContentAsString();
+        assertThat(responseContent).isEqualTo("JSON data uploaded and processed successfully");
     }
 
     @Test
-    public void testUploadJsonDataIOException() throws Exception {
-        // Mock the service call to throw IOException
-        Mockito.doThrow(new IOException("Failed to process JSON")).when(jsonDataUploadService).uploadJsonData(Mockito.anyString());
-
-        String validJsonContent = "{ \"meta\": { \"data_version\": \"1.0\", \"created\": \"2023-09-15\", \"revision\": 1 }, \"data\": [] }";
-
-        // Send a valid JSON payload
-        mockMvc.perform(post("/api/json-upload/upload")
+    public void testUploadJsonData_EmptyJson() throws Exception {
+        // Act & Assert
+        MvcResult result = mockMvc.perform(post("/api/json-upload/upload")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validJsonContent)) // Sending valid JSON content
-                .andExpect(status().isInternalServerError()) // Expecting 500 Internal Server Error
-                .andExpect(content().string("Failed to process the JSON data: Failed to process JSON")); // Validating the error message
+                        .content("")) // Empty content
+                .andExpect(status().isBadRequest()) // Expecting HTTP 400
+                .andReturn();
+
+        // Verify response content
+        String responseContent = result.getResponse().getContentAsString();
+        assertThat(responseContent).isEqualTo("JSON content cannot be null or empty");
     }
 
     @Test
-    public void testUploadJsonDataUnexpectedException() throws Exception {
-        // Mock the service call to throw a generic exception
-        Mockito.doThrow(new RuntimeException("Unexpected error")).when(jsonDataUploadService).uploadJsonData(Mockito.anyString());
-
+    public void testUploadJsonData_IOException() throws Exception {
+        // Arrange
         String validJsonContent = "{ \"meta\": { \"data_version\": \"1.0\", \"created\": \"2023-09-15\", \"revision\": 1 }, \"data\": [] }";
 
-        // Send a valid JSON payload
-        mockMvc.perform(post("/api/json-upload/upload")
+        // Mock the service to throw IOException
+        Mockito.doThrow(new IOException("Simulated IO Exception")).when(jsonDataUploadService).uploadJsonData(Mockito.anyString());
+
+        // Act & Assert
+        MvcResult result = mockMvc.perform(post("/api/json-upload/upload")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validJsonContent)) // Sending valid JSON content
-                .andExpect(status().isInternalServerError()) // Expecting 500 Internal Server Error
-                .andExpect(content().string("An unexpected error occurred: Unexpected error")); // Validating the error message
+                        .content(validJsonContent))
+                .andExpect(status().isInternalServerError()) // Expecting HTTP 500
+                .andReturn();
+
+        // Verify response content
+        String responseContent = result.getResponse().getContentAsString();
+        assertThat(responseContent).isEqualTo("Failed to process the JSON data: Simulated IO Exception");
+    }
+
+    @Test
+    public void testUploadJsonData_UnexpectedException() throws Exception {
+        // Arrange
+        String validJsonContent = "{ \"meta\": { \"data_version\": \"1.0\", \"created\": \"2023-09-15\", \"revision\": 1 }, \"data\": [] }";
+
+        // Mock the service to throw a generic RuntimeException
+        Mockito.doThrow(new RuntimeException("Unexpected error occurred")).when(jsonDataUploadService).uploadJsonData(Mockito.anyString());
+
+        // Act & Assert
+        MvcResult result = mockMvc.perform(post("/api/json-upload/upload")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validJsonContent))
+                .andExpect(status().isInternalServerError()) // Expecting HTTP 500
+                .andReturn();
+
+        // Verify response content
+        String responseContent = result.getResponse().getContentAsString();
+        assertThat(responseContent).isEqualTo("An unexpected error occurred: Unexpected error occurred");
     }
 }
