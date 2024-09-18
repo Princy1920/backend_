@@ -1,36 +1,49 @@
 package com.indium.match_app.security;
 
-import jakarta.servlet.http.HttpServletResponse;
+
+import com.indium.match_app.security.JwtRequestFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfiguration {
 
+    private final JwtRequestFilter jwtRequestFilter;
+
+    public SecurityConfiguration(JwtRequestFilter jwtRequestFilter) {
+        this.jwtRequestFilter = jwtRequestFilter;
+    }
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(csrf -> csrf.disable())  // Disable CSRF for simplicity
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/error").permitAll()  // Allow access to login page and error page
-                        .requestMatchers("/api/**").authenticated()  // Secure API endpoints
-                        .anyRequest().authenticated()  // Secure all other requests
+                        .requestMatchers("/api/auth/**").permitAll()  // Allow public access to auth endpoints
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()  // Allow public access to Swagger endpoints
+                        .anyRequest().authenticated()  // Secure all other endpoints
                 )
-                .formLogin(form -> form
-                        .loginPage("/login")  // Custom login page
-                        .successHandler((request, response, authentication) -> {
-                            response.setStatus(HttpServletResponse.SC_OK);
-                            response.getWriter().write("{\"message\": \"Login successful\"}");
-                            response.getWriter().flush();
-                        })
-                        .permitAll()
-                )
-                .csrf(csrf -> csrf.disable())  // Disable CSRF protection for APIs
-                .logout(logout -> logout
-                        .logoutSuccessUrl("/login?logout")
-                        .permitAll()
-                );
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  // Make session stateless
+                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);  // Add JWT filter
+
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
     }
 }
