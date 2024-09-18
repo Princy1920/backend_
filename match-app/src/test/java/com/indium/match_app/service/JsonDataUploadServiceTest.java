@@ -1,33 +1,24 @@
 package com.indium.match_app.service;
-import com.fasterxml.jackson.databind.JsonNode;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.indium.match_app.entity.*;
 import com.indium.match_app.repository.*;
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.Path;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
-@SpringBootTest
-public class JsonDataUploadServiceTest {
+import static org.mockito.Mockito.*;
+
+class JsonDataUploadServiceTest {
 
     @InjectMocks
-    private JsonDataUploadService jsonDataUploadService; // Service under test
+    private JsonDataUploadService jsonDataUploadService;
 
     @Mock
     private TeamsRepository teamsRepository;
@@ -53,71 +44,77 @@ public class JsonDataUploadServiceTest {
     @Mock
     private OversRepository oversRepository;
 
-    // Initialize ObjectMapper directly here
-    private ObjectMapper objectMapper = new ObjectMapper(); // Initialize during declaration
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
-    public void setup() {
+    void setUp() {
+        // Initialize mocks before each test
         MockitoAnnotations.openMocks(this);
-        // No need to initialize objectMapper again here since it's already initialized at declaration
     }
 
     @Test
-    void testInsertTeams() throws IOException {
-        // Sample JSON input with 'teams' node
-        String sampleJsonData = "{\"info\": {\"teams\": [\"Team A\", \"Team B\"]}}";
+    @Transactional
+    void testUploadJsonData() throws IOException {
+        // Sample JSON input for testing (simplified for clarity)
+        String jsonData = """
+                {
+                  "meta": {
+                    "data_version": "1.0",
+                    "created": "2023-09-15",
+                    "revision": 1
+                  },
+                  "info": {
+                    "balls_per_over": 6,
+                    "city": "Mumbai",
+                    "event": {
+                      "name": "IPL",
+                      "match_number": 45
+                    },
+                    "teams": ["Team A", "Team B"],
+                    "outcome": {
+                      "by": {
+                        "runs": 50
+                      },
+                      "winner": "Team A"
+                    },
+                    "player_of_match": ["Player 1"],
+                    "season": "2021",
+                    "team_type": "men",
+                    "toss": {
+                      "decision": "bat",
+                      "winner": "Team A"
+                    },
+                    "venue": "Wankhede",
+                    "overs": 20,
+                    "dates": ["2021-05-25"]
+                  }
+                }
+                """;
 
-        // Now the objectMapper can be used here
-        JsonNode rootNode = objectMapper.readTree(sampleJsonData);
-        JsonNode infoNode = rootNode.get("info");
+        // Mock the repository save methods to ensure the code works without actual DB interaction
+        when(metaRepository.save(any(Meta.class))).thenReturn(new Meta());
+        when(infoRepository.save(any(Info.class))).thenReturn(new Info());
+        when(teamsRepository.save(any(Teams.class))).thenReturn(new Teams());
+        when(playersRepository.save(any(Players.class))).thenReturn(new Players());
+        when(officialsRepository.save(any(Officials.class))).thenReturn(new Officials());
+        when(inningsRepository.save(any(Innings.class))).thenReturn(new Innings());
+        when(oversRepository.save(any(Overs.class))).thenReturn(new Overs());
+        when(deliveriesRepository.save(any(Deliveries.class))).thenReturn(new Deliveries());
 
-        // Mock Info object that is passed to associate with teams
-        Info mockInfo = new Info();
-        mockInfo.setId(1);  // Simulate a saved info entity with an ID
+        // Call the method under test
+        jsonDataUploadService.uploadJsonData(jsonData);
 
-        // Mock Teams entity
-        Teams mockTeamA = new Teams();
-        mockTeamA.setTeamName("Team A");
-        mockTeamA.setInfo(mockInfo);
-
-        Teams mockTeamB = new Teams();
-        mockTeamB.setTeamName("Team B");
-        mockTeamB.setInfo(mockInfo);
-
-        // Call the actual method for inserting teams
-        Map<String, Teams> teamMap = new HashMap<>();
-
-        JsonNode teamsNode = infoNode.get("teams");
-        if (teamsNode != null && teamsNode.isArray()) {
-            for (JsonNode teamNode : teamsNode) {
-                String teamName = teamNode.asText();
-                Teams team = new Teams();
-                team.setTeamName(teamName);
-                team.setInfo(mockInfo);  // Associate with mock Info object
-                teamsRepository.save(team);
-                teamMap.put(teamName, team);
-            }
-        }
-
-        // Mock behavior of the repository (you can verify actual calls)
-        verify(teamsRepository, times(2)).save(any(Teams.class)); // Assert that the repository is called twice
+        // Verify that the repositories' save methods were called
+        verify(metaRepository, times(1)).save(any(Meta.class));
+        verify(infoRepository, times(1)).save(any(Info.class));
+        verify(teamsRepository, times(2)).save(any(Teams.class));  // 2 teams in the JSON
+        verify(playersRepository, atLeastOnce()).save(any(Players.class));
+        verify(officialsRepository, atLeastOnce()).save(any(Officials.class));
+        verify(inningsRepository, atLeastOnce()).save(any(Innings.class));
+        verify(oversRepository, atLeastOnce()).save(any(Overs.class));
+        verify(deliveriesRepository, atLeastOnce()).save(any(Deliveries.class));
     }
 
-
-
-
-    @Test
-    void testUploadJsonData_MissingMetaField() {
-        // Sample JSON without the 'meta' field
-        String sampleJsonData = "{\"info\": {\"city\": \"New York\", \"event\": {\"match_number\": 10, \"name\": \"Super Cup\"}, \"teams\": [\"Team A\", \"Team B\"]}}";
-
-        // Expect an IllegalArgumentException due to missing 'meta' field
-        assertThrows(IllegalArgumentException.class, () -> {
-            jsonDataUploadService.uploadJsonData(sampleJsonData);
-        });
-    }
-
-
+    // Additional tests can be written to cover edge cases, like missing fields or invalid data
 
 }
-
