@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: match-app-deployment
+  labels:
+    app: match-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: match-app
+  template:
+    metadata:
+      labels:
+        app: match-app
+    spec:
+      containers:
+        - name: match-app
+          image: match-app:0.0.1
+          env:
+            - name: KAFKA_HOST
+              value: "host.docker.internal:9094"
+            - name: REDIS_HOST
+              value: "host.docker.internal"
+            - name: MYSQL_URL
+              value: "jdbc:mysql://host.docker.internal:1000/matches"
+          ports:
+            - containerPort: 8081
+          resources:
+            requests:
+              memory: "512Mi"  # Increased from 128Mi
+              cpu: "500m"      # Increased from 250m
+            limits:
+              memory: "1Gi"   # Increased from 256Mi
+              cpu: "1"        # Increased from 500m
+
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: match-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: match-app-deployment
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: match-app-service
+spec:
+  selector:
+    app: match-app
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 8081
+      nodePort: 30005

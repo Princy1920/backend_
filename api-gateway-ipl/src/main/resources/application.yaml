@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: api-gateway-ipl
+  cloud:
+    gateway:
+      routes:
+        - id: insert-match-data
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/json-upload/upload
+        - id: get-matches-by-player
+          uri: http://localhost:8081
+          predicates:
+            - Path=/matches/player
+        - id: get-cumulative-score
+          uri: http://localhost:8081
+          predicates:
+            - Path=/matches/cumulative-score
+        - id: get-scores-by-date
+          uri: http://localhost:8081
+          predicates:
+            - Path=/matches/scores/**
+        - id: get-top-batsmen
+          uri: http://localhost:8081
+          predicates:
+            - Path=/matches/top-batsmen
+        - id: get-wicket-count-by-bowler
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/json-upload/player/wickets
+
+server:
+  port: 9004 # API Gateway will run on port 9000

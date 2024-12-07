@@ -1,0 +1,6 @@
+com\indium\match_app\controller\MatchControllerTest.class
+com\indium\match_app\MatchAppApplicationTests.class
+com\indium\match_app\service\MatchServiceTest.class
+com\indium\match_app\controller\MatchControllerTest$1.class
+com\indium\match_app\service\JsonDataUploadServiceTest.class
+com\indium\match_app\controller\JsonDataControllerIntegrationTest.class

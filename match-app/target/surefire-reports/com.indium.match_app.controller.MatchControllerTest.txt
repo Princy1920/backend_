@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.indium.match_app.controller.MatchControllerTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.941 s -- in com.indium.match_app.controller.MatchControllerTest
